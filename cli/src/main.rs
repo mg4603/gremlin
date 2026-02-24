@@ -1,3 +1,7 @@
+use gremlin_core::logging;
+
 fn main() {
-    println!("scanner starting...");
+    logging::init();
+
+    tracing::info!("scanner starting");
 }
