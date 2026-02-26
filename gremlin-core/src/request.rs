@@ -4,7 +4,7 @@ use url::Url;
 
 use crate::types::RequestId;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ScanRequest {
     pub id: RequestId,
     pub url: Url,
