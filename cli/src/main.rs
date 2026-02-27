@@ -33,7 +33,8 @@ enum Commands {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     logging::init();
 
     let cli = Cli::parse();
