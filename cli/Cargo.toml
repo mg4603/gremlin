@@ -7,3 +7,4 @@ edition = "2024"
 gremlin-core = { path = "../gremlin-core" }
 tracing = "0.1"
 clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
