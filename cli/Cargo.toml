@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 gremlin-core = { path = "../gremlin-core" }
 tracing = "0.1"
+clap = { version = "4", features = ["derive"] }
