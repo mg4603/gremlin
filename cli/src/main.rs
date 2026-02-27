@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::info;
 
+use gremlin_core::config::ScanConfig;
 use gremlin_core::logging;
 
 /// HTTP scanning engine
@@ -42,15 +43,15 @@ fn main() {
             url,
             wordlist,
             concurrency,
-        } => {
-            info!(target = "cli",
-                url = %url,
-                wordlist = %wordlist.display(),
-                concurrency = concurrency,
-                "scan command invoked"
-            );
-
-            println!("scan command parsed successfully");
-        }
+        } => match ScanConfig::new(&url, &wordlist, concurrency) {
+            Ok(config) => {
+                info!(?config, "config validated");
+                println!("Config validated successfully.");
+            }
+            Err(e) => {
+                eprintln!("Configuration error: {e}");
+                std::process::exit(1);
+            }
+        },
     }
 }
