@@ -2,6 +2,7 @@ pub mod config;
 pub mod error;
 pub mod generator;
 pub mod logging;
+pub mod queue;
 pub mod request;
 pub mod response;
 pub mod result;
