@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod generator;
 pub mod logging;
 pub mod request;
 pub mod response;
