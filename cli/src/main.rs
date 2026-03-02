@@ -1,7 +1,12 @@
-use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use tracing::info;
+use std::sync::Arc;
 
+use clap::{Parser, Subcommand};
+use tokio::sync::Mutex;
+use tokio::task;
+use tracing::{error, info};
+
+use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
 use gremlin_core::generator::JobGenerator;
 use gremlin_core::logging;
@@ -48,29 +53,68 @@ async fn main() {
             concurrency,
         } => match ScanConfig::new(&url, &wordlist, concurrency) {
             Ok(config) => {
-                let (sender, _) = bounded(config.concurrency);
+                let concurrency = config.concurrency;
+
+                let (sender, receiver) = bounded(concurrency);
+
+                let engine = match HttpEngine::new() {
+                    Ok(engine) => Arc::new(engine),
+                    Err(e) => {
+                        eprintln!("engine init failed: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+
+                let receiver = Arc::new(Mutex::new(receiver));
+
+                let mut handles = Vec::new();
+
+                for _ in 0..concurrency {
+                    let rx = receiver.clone();
+                    let engine = engine.clone();
+
+                    let handle = task::spawn(async move {
+                        loop {
+                            let request_opt = {
+                                let mut locked = rx.lock().await;
+                                locked.recv().await
+                            };
+
+                            match request_opt {
+                                Some(request) => {
+                                    let response = engine.execute(request).await;
+
+                                    if let Some(status) = response.status {
+                                        info!("response status: {}", status);
+                                    } else if let Some(e) = response.error {
+                                        error!("respose error: {}", e);
+                                    }
+                                }
+                                None => break,
+                            }
+                        }
+                    });
+
+                    handles.push(handle);
+                }
 
                 let mut generator = JobGenerator::new(config)
                     .await
-                    .expect("failed to initialize generator");
+                    .expect("generator init failed");
 
-                loop {
-                    match generator.next().await {
-                        Ok(Some(request)) => {
-                            if let Err(e) = sender.send(request).await {
-                                eprintln!("queue send failed: {e}");
-                                break;
-                            }
-                        }
-                        Ok(None) => break,
-                        Err(e) => {
-                            eprintln!("generator error: {e}");
-                            break;
-                        }
+                while let Ok(Some(request)) = generator.next().await {
+                    if sender.send(request).await.is_err() {
+                        break;
                     }
                 }
 
-                info!("producer loop completed");
+                drop(sender);
+
+                for handle in handles {
+                    let _ = handle.await;
+                }
+
+                info!("scan complete");
             }
             Err(e) => {
                 eprintln!("Configuration error: {e}");
