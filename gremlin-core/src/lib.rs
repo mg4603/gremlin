@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod filters;
 pub mod generator;
 pub mod logging;
 pub mod matchers;
