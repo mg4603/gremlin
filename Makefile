@@ -17,7 +17,7 @@ fmt:
 
 test:
 	@echo "==> running tests"
-	@cargo test -p cli
+	@cargo test
 
 lint:
 	@echo "==> running linter"
