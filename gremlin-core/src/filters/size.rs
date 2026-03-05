@@ -22,27 +22,12 @@ impl Filter for SizeFilter {
 mod tests {
     use super::*;
 
-    use std::time::Duration;
-
-    use bytes::Bytes;
-    use http::{HeaderMap, StatusCode};
-
-    use crate::response::ScanResponse;
-    use crate::types::Timing;
+    use crate::test_helpers::response_with_size;
 
     fn build_result(size: usize) -> ScanResult {
         ScanResult {
             request_id: 1,
-            response: ScanResponse {
-                request_id: 1,
-                status: Some(StatusCode::OK),
-                headers: HeaderMap::new(),
-                body: Some(Bytes::from(vec![0u8; size])),
-                timing: Some(Timing {
-                    total: Duration::from_millis(5),
-                }),
-                error: None,
-            },
+            response: response_with_size(size),
             matched: false,
             notes: Vec::new(),
         }
