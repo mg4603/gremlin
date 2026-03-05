@@ -31,31 +31,12 @@ impl Matcher for RegexMatcher {
 mod tests {
     use super::*;
 
-    use std::time::Duration;
-
-    use bytes::Bytes;
-    use http::{HeaderMap, StatusCode};
-
-    use crate::response::ScanResponse;
-    use crate::types::Timing;
-
-    fn build_response(body: Option<&str>) -> ScanResponse {
-        ScanResponse {
-            request_id: 1,
-            status: Some(StatusCode::OK),
-            headers: HeaderMap::new(),
-            body: body.map(|b| Bytes::from(b.to_owned())),
-            timing: Some(Timing {
-                total: Duration::from_millis(10),
-            }),
-            error: None,
-        }
-    }
+    use crate::test_helpers::response_with_body;
 
     #[test]
     fn matches_when_regex_found() {
         let matcher = RegexMatcher::new("admin").unwrap();
-        let resp = build_response(Some("admin panel"));
+        let resp = response_with_body(Some("admin panel"));
 
         assert!(matcher.matches(&resp));
     }
@@ -63,7 +44,7 @@ mod tests {
     #[test]
     fn does_not_match_when_regex_missing() {
         let matcher = RegexMatcher::new("admin").unwrap();
-        let resp = build_response(Some("not a match"));
+        let resp = response_with_body(Some("not a match"));
 
         assert!(!matcher.matches(&resp));
     }
@@ -71,7 +52,7 @@ mod tests {
     #[test]
     fn returns_false_when_body_missing() {
         let matcher = RegexMatcher::new("admin").unwrap();
-        let resp = build_response(None);
+        let resp = response_with_body(None);
 
         assert!(!matcher.matches(&resp));
     }

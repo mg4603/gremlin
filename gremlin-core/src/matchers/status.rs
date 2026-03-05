@@ -26,31 +26,14 @@ impl Matcher for StatusMatcher {
 mod tests {
     use super::*;
 
-    use std::time::Duration;
+    use http::StatusCode;
 
-    use bytes::Bytes;
-    use http::{HeaderMap, StatusCode};
-
-    use crate::response::ScanResponse;
-    use crate::types::Timing;
-
-    fn build_response(status: Option<StatusCode>) -> ScanResponse {
-        ScanResponse {
-            request_id: 1,
-            status,
-            headers: HeaderMap::new(),
-            body: Some(Bytes::new()),
-            timing: Some(Timing {
-                total: Duration::from_millis(10),
-            }),
-            error: None,
-        }
-    }
+    use crate::test_helpers::response_with_status;
 
     #[test]
     fn matches_expected_status() {
         let matcher = StatusMatcher::new(StatusCode::OK);
-        let resp = build_response(Some(StatusCode::OK));
+        let resp = response_with_status(Some(StatusCode::OK));
 
         assert!(matcher.matches(&resp));
     }
@@ -58,7 +41,7 @@ mod tests {
     #[test]
     fn does_not_match_differnt_status() {
         let matcher = StatusMatcher::new(StatusCode::OK);
-        let resp = build_response(Some(StatusCode::NOT_FOUND));
+        let resp = response_with_status(Some(StatusCode::NOT_FOUND));
 
         assert!(!matcher.matches(&resp));
     }
@@ -66,7 +49,7 @@ mod tests {
     #[test]
     fn does_not_match_missing_status() {
         let matcher = StatusMatcher::new(StatusCode::OK);
-        let resp = build_response(None);
+        let resp = response_with_status(None);
 
         assert!(!matcher.matches(&resp));
     }
