@@ -9,8 +9,6 @@ pub mod queue;
 pub mod request;
 pub mod response;
 pub mod result;
+pub mod test_helpers;
 pub mod types;
 pub mod wordlist;
-
-#[cfg(test)]
-pub mod test_helpers;
