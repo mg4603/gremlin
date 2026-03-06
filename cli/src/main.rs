@@ -37,6 +37,22 @@ enum Commands {
         /// Number of concurrent workers
         #[arg(short, long, default_value_t = 10)]
         concurrency: usize,
+
+        /// Include results where [field] matches PATTERN
+        #[arg(short = 'r', long, value_name = "PATTERN")]
+        match_regex: Option<String>,
+
+        /// Include results with this status code
+        #[arg(long, value_name = "CODE")]
+        match_status: Option<u16>,
+
+        /// Exclude results smaller than N bytes
+        #[arg(long, value_name = "BYTES")]
+        filter_size_min: Option<usize>,
+
+        /// Exclude results larger than N bytes
+        #[arg(long, value_name = "BYTES")]
+        filter_size_max: Option<usize>,
     },
 }
 
@@ -51,7 +67,19 @@ async fn main() {
             url,
             wordlist,
             concurrency,
-        } => match ScanConfig::new(&url, &wordlist, concurrency) {
+            match_regex,
+            match_status,
+            filter_size_min,
+            filter_size_max,
+        } => match ScanConfig::new(
+            url,
+            wordlist,
+            concurrency,
+            match_status,
+            match_regex,
+            filter_size_min,
+            filter_size_max,
+        ) {
             Ok(config) => {
                 let concurrency = config.concurrency;
 
