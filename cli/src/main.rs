@@ -4,12 +4,13 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use tokio::sync::Mutex;
 use tokio::task;
-use tracing::{error, info};
+use tracing::info;
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
 use gremlin_core::generator::JobGenerator;
 use gremlin_core::logging;
+use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
 
 /// HTTP scanning engine
@@ -97,9 +98,15 @@ async fn main() {
 
                 let mut handles = Vec::new();
 
+                let matchers = config.build_matchers();
+                let filters = config.build_filters();
+
+                let pipeline = Arc::new(Pipeline::new(matchers, filters));
+
                 for _ in 0..concurrency {
                     let rx = receiver.clone();
                     let engine = engine.clone();
+                    let pipeline = pipeline.clone();
 
                     let handle = task::spawn(async move {
                         loop {
@@ -112,10 +119,8 @@ async fn main() {
                                 Some(request) => {
                                     let response = engine.execute(request).await;
 
-                                    if let Some(status) = response.status {
-                                        info!("response status: {}", status);
-                                    } else if let Some(e) = response.error {
-                                        error!("respose error: {}", e);
+                                    if let Some(result) = pipeline.process(response) {
+                                        info!("{:?}", result);
                                     }
                                 }
                                 None => break,
