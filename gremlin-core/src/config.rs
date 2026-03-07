@@ -5,6 +5,10 @@ use regex::Regex;
 use thiserror::Error;
 use url::Url;
 
+use crate::filters::size::SizeFilter;
+use crate::matchers::{regex::RegexMatcher, status::StatusMatcher};
+use crate::pipeline::{Filter, Matcher};
+
 #[derive(Debug)]
 pub struct ScanConfig {
     pub url: Url,
@@ -91,5 +95,27 @@ impl ScanConfig {
             filter_size_min,
             filter_size_max,
         })
+    }
+
+    pub fn build_matchers(&self) -> Vec<Box<dyn Matcher>> {
+        let mut matchers: Vec<Box<dyn Matcher>> = Vec::new();
+
+        if let Some(status) = self.match_status {
+            matchers.push(Box::new(StatusMatcher::new(status)));
+        }
+
+        if let Some(regex) = &self.match_regex {
+            matchers.push(Box::new(RegexMatcher::new(regex.clone())));
+        }
+        matchers
+    }
+
+    pub fn build_filters(&self) -> Vec<Box<dyn Filter>> {
+        let mut filters: Vec<Box<dyn Filter>> = Vec::new();
+
+        if let (Some(min), Some(max)) = (self.filter_size_min, self.filter_size_max) {
+            filters.push(Box::new(SizeFilter::new(min, max)));
+        }
+        filters
     }
 }
