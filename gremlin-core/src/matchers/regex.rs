@@ -8,10 +8,8 @@ pub struct RegexMatcher {
 }
 
 impl RegexMatcher {
-    pub fn new(pattern: &str) -> Result<Self, regex::Error> {
-        let regex = Regex::new(pattern)?;
-
-        Ok(Self { regex })
+    pub fn new(regex: Regex) -> Self {
+        Self { regex }
     }
 }
 
@@ -35,7 +33,8 @@ mod tests {
 
     #[test]
     fn matches_when_regex_found() {
-        let matcher = RegexMatcher::new("admin").unwrap();
+        let regex = Regex::new("admin").unwrap();
+        let matcher = RegexMatcher::new(regex);
         let resp = response_with_body(Some("admin panel"));
 
         assert!(matcher.matches(&resp));
@@ -43,7 +42,8 @@ mod tests {
 
     #[test]
     fn does_not_match_when_regex_missing() {
-        let matcher = RegexMatcher::new("admin").unwrap();
+        let regex = Regex::new("admin").unwrap();
+        let matcher = RegexMatcher::new(regex);
         let resp = response_with_body(Some("not a match"));
 
         assert!(!matcher.matches(&resp));
@@ -51,7 +51,8 @@ mod tests {
 
     #[test]
     fn returns_false_when_body_missing() {
-        let matcher = RegexMatcher::new("admin").unwrap();
+        let regex = Regex::new("admin").unwrap();
+        let matcher = RegexMatcher::new(regex);
         let resp = response_with_body(None);
 
         assert!(!matcher.matches(&resp));
