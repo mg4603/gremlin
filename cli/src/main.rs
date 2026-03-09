@@ -12,6 +12,7 @@ use gremlin_core::generator::JobGenerator;
 use gremlin_core::logging;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
+use gremlin_core::rate_limiter::TokenBucket;
 
 /// HTTP scanning engine
 #[derive(Parser)]
@@ -109,10 +110,15 @@ async fn main() {
 
                 let pipeline = Arc::new(Pipeline::new(matchers, filters));
 
+                let rate = rate_limit.unwrap_or(100);
+
+                let limiter = Arc::new(Mutex::new(TokenBucket::new(rate)));
+
                 for _ in 0..concurrency {
                     let rx = receiver.clone();
                     let engine = engine.clone();
                     let pipeline = pipeline.clone();
+                    let limiter = limiter.clone();
 
                     let handle = task::spawn(async move {
                         loop {
@@ -121,15 +127,16 @@ async fn main() {
                                 locked.recv().await
                             };
 
-                            match request_opt {
-                                Some(request) => {
-                                    let response = engine.execute(request).await;
-
-                                    if let Some(result) = pipeline.process(response) {
-                                        info!("{:?}", result);
-                                    }
-                                }
+                            let request = match request_opt {
+                                Some(request) => request,
                                 None => break,
+                            };
+
+                            limiter.lock().await.acquire().await;
+                            let response = engine.execute(request).await;
+
+                            if let Some(result) = pipeline.process(response) {
+                                info!("{:?}", result);
                             }
                         }
                     });
