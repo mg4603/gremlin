@@ -49,6 +49,7 @@ pub enum ConfigError {
 }
 
 impl ScanConfig {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         url: String,
         wordlist: PathBuf,

@@ -54,6 +54,10 @@ enum Commands {
         /// Exclude results larger than N bytes
         #[arg(long, value_name = "BYTES")]
         filter_size_max: Option<usize>,
+
+        /// Requests per Second
+        #[arg(long, value_name = "RATE")]
+        rate_limit: Option<u64>,
     },
 }
 
@@ -72,6 +76,7 @@ async fn main() {
             match_status,
             filter_size_min,
             filter_size_max,
+            rate_limit,
         } => match ScanConfig::new(
             url,
             wordlist,
@@ -80,6 +85,7 @@ async fn main() {
             match_regex,
             filter_size_min,
             filter_size_max,
+            rate_limit,
         ) {
             Ok(config) => {
                 let concurrency = config.concurrency;
