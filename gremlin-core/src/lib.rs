@@ -6,6 +6,7 @@ pub mod logging;
 pub mod matchers;
 pub mod pipeline;
 pub mod queue;
+pub mod rate_limiter;
 pub mod request;
 pub mod response;
 pub mod result;
