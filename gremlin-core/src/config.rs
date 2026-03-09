@@ -20,6 +20,8 @@ pub struct ScanConfig {
 
     pub filter_size_min: Option<usize>,
     pub filter_size_max: Option<usize>,
+
+    pub rate_limit: Option<u64>,
 }
 
 #[derive(Debug, Error)]
@@ -41,6 +43,9 @@ pub enum ConfigError {
 
     #[error("invalid regex pattern: {0}")]
     InvalidRegexPattern(String),
+
+    #[error("invalid request rate limit")]
+    InvalidRateLimit,
 }
 
 impl ScanConfig {
@@ -52,6 +57,7 @@ impl ScanConfig {
         match_regex: Option<String>,
         filter_size_min: Option<usize>,
         filter_size_max: Option<usize>,
+        rate_limit: Option<u64>,
     ) -> Result<Self, ConfigError> {
         let parsed_url = Url::parse(&url).map_err(|_| ConfigError::InvalidUrl(url))?;
 
@@ -86,6 +92,12 @@ impl ScanConfig {
             None => None,
         };
 
+        if let Some(rate) = rate_limit
+            && rate == 0
+        {
+            return Err(ConfigError::InvalidRateLimit);
+        }
+
         Ok(Self {
             url: parsed_url,
             wordlist,
@@ -94,6 +106,7 @@ impl ScanConfig {
             match_regex,
             filter_size_min,
             filter_size_max,
+            rate_limit,
         })
     }
 
