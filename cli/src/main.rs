@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use tokio::sync::Mutex;
-use tokio::task;
+use tokio::{signal, task};
 use tracing::info;
 
 use engine::engine::HttpEngine;
@@ -67,6 +67,12 @@ async fn main() {
     logging::init();
 
     let cli = Cli::parse();
+
+    let mut shutdown = tokio::spawn(async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to listen for SIGTERM");
+    });
 
     match cli.command {
         Commands::Scan {
@@ -148,9 +154,27 @@ async fn main() {
                     .await
                     .expect("generator init failed");
 
-                while let Ok(Some(request)) = generator.next().await {
-                    if sender.send(request).await.is_err() {
-                        break;
+                loop {
+                    tokio::select! {
+                        _ = &mut shutdown => {
+                            println!("shutdown signal received");
+                            break;
+                        }
+
+                        job = generator.next() => {
+                            match job {
+                                Ok(Some(request)) => {
+                                    if sender.send(request).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Ok(None) => break,
+                                Err(e) => {
+                                    eprintln!("generator error: {e}");
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
 
