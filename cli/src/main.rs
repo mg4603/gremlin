@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use tokio::sync::Mutex;
-use tokio::task;
+use tokio::{signal, task};
 use tracing::info;
 
 use engine::engine::HttpEngine;
@@ -67,6 +67,12 @@ async fn main() {
     logging::init();
 
     let cli = Cli::parse();
+
+    let shutdown = tokio::spawn(async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to listen for SIGTERM");
+    });
 
     match cli.command {
         Commands::Scan {
