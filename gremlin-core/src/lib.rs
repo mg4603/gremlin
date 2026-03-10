@@ -4,6 +4,7 @@ pub mod filters;
 pub mod generator;
 pub mod logging;
 pub mod matchers;
+pub mod metrics;
 pub mod pipeline;
 pub mod queue;
 pub mod rate_limiter;
