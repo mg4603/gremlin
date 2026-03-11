@@ -177,7 +177,7 @@ async fn main() {
                                         );
                                     }
                                     None => {
-                                        metrics.record_success();
+                                        metrics.record_filtered();
                                         trace!("response filtered");
                                     }
                                 },
