@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use clap::{Parser, Subcommand};
 use tokio::sync::Mutex;
@@ -10,6 +11,7 @@ use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
 use gremlin_core::generator::JobGenerator;
 use gremlin_core::logging;
+use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
 use gremlin_core::rate_limiter::TokenBucket;
@@ -120,14 +122,19 @@ async fn main() {
 
                 let limiter = Arc::new(Mutex::new(TokenBucket::new(rate)));
 
+                let metrics = Metrics::new();
+
                 for _ in 0..concurrency {
                     let rx = receiver.clone();
                     let engine = engine.clone();
                     let pipeline = pipeline.clone();
                     let limiter = limiter.clone();
-
+                    let metrics = metrics.clone();
                     let handle = task::spawn(async move {
                         loop {
+                            metrics.record_request();
+                            let start = Instant::now();
+
                             let request_opt = {
                                 let mut locked = rx.lock().await;
                                 locked.recv().await
@@ -143,7 +150,16 @@ async fn main() {
 
                             if let Some(result) = pipeline.process(response) {
                                 info!("{:?}", result);
+                                match result.response.error {
+                                    Some(_) => metrics.record_error(),
+                                    None => metrics.record_success(),
+                                }
+                            } else {
+                                metrics.record_error();
                             }
+
+                            let elapsed = start.elapsed().as_nanos() as u64;
+                            metrics.record_latency(elapsed);
                         }
                     });
 
