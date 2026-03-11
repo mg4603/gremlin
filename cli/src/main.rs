@@ -5,7 +5,7 @@ use std::time::Instant;
 use clap::{Parser, Subcommand};
 use tokio::sync::Mutex;
 use tokio::{signal, task};
-use tracing::info;
+use tracing::{debug, error, info, info_span, trace};
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
@@ -15,6 +15,7 @@ use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
 use gremlin_core::rate_limiter::TokenBucket;
+use gremlin_core::request::ScanRequest;
 
 /// HTTP scanning engine
 #[derive(Parser)]
@@ -99,7 +100,7 @@ async fn main() {
             Ok(config) => {
                 let concurrency = config.concurrency;
 
-                let (sender, receiver) = bounded(concurrency);
+                let (sender, receiver) = bounded::<ScanRequest>(concurrency);
 
                 let engine = match HttpEngine::new() {
                     Ok(engine) => Arc::new(engine),
@@ -145,21 +146,46 @@ async fn main() {
                                 None => break,
                             };
 
+                            let span = info_span!(
+                                "scan_request",
+                                request_id = %request.id,
+                                url = %request.url,
+                            );
+
+                            let _enter = span.enter();
+
                             limiter.lock().await.acquire().await;
                             let response = engine.execute(request).await;
 
-                            if let Some(result) = pipeline.process(response) {
-                                info!("{:?}", result);
-                                match result.response.error {
-                                    Some(_) => metrics.record_error(),
-                                    None => metrics.record_success(),
+                            if let Some(status) = response.status {
+                                debug!(status = %status, "response received");
+                            }
+
+                            match response.error {
+                                Some(e) => {
+                                    metrics.record_error();
+                                    error!(error=%e, "request failed");
                                 }
-                            } else {
-                                metrics.record_error();
+                                None => match pipeline.process(response) {
+                                    Some(result) => {
+                                        metrics.record_success();
+
+                                        debug!(
+                                            request_id = %result.request_id,
+                                            matched = result.matched,
+                                            "pipeline emitted result",
+                                        );
+                                    }
+                                    None => {
+                                        metrics.record_success();
+                                        trace!("response filtered");
+                                    }
+                                },
                             }
 
                             let elapsed = start.elapsed().as_nanos() as u64;
                             metrics.record_latency(elapsed);
+                            span.record("latency_ns", elapsed);
                         }
                     });
 
