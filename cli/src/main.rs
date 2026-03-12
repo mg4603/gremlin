@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use tokio::sync::Mutex;
 use tokio::{signal, task};
-use tracing::{debug, error, info, info_span, trace};
+use tracing::{Instrument, Span, debug, error, info, info_span, trace};
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
@@ -144,6 +144,12 @@ async fn main() {
                     .unwrap(),
                 );
 
+                info!(
+                    concurrency = concurrency,
+                    wordlist_len = wordlist_len,
+                    "scan started"
+                );
+
                 for _ in 0..concurrency {
                     let rx = receiver.clone();
                     let engine = engine.clone();
@@ -154,9 +160,6 @@ async fn main() {
 
                     let handle = task::spawn(async move {
                         loop {
-                            metrics.record_request();
-                            let start = Instant::now();
-
                             let request_opt = {
                                 let mut locked = rx.lock().await;
                                 locked.recv().await
@@ -167,54 +170,59 @@ async fn main() {
                                 None => break,
                             };
 
-                            let span = info_span!(
-                                "scan_request",
-                                request_id = %request.id,
-                                url = %request.url,
-                            );
+                            metrics.record_request();
+                            let request_id = request.id;
+                            let request_url = request.url.clone();
 
-                            let _enter = span.enter();
+                            async {
+                                let start = Instant::now();
 
-                            limiter.lock().await.acquire().await;
-                            let response = engine.execute(request).await;
+                                limiter.lock().await.acquire().await;
+                                let response = engine.execute(request).await;
 
-                            if let Some(status) = response.status {
-                                debug!(status = %status, "response received");
-                            }
-
-                            match response.error {
-                                Some(e) => {
-                                    metrics.record_error();
-                                    error!(error=%e, "request failed");
+                                if let Some(status) = response.status {
+                                    debug!(status = %status, "response received");
                                 }
-                                None => match pipeline.process(response) {
-                                    Some(result) => {
-                                        metrics.record_success();
 
-                                        debug!(
-                                            request_id = %result.request_id,
-                                            matched = result.matched,
-                                            "pipeline emitted result",
-                                        );
+                                match response.error {
+                                    Some(e) => {
+                                        metrics.record_error();
+                                        error!(error=%e, "request failed");
                                     }
-                                    None => {
-                                        metrics.record_filtered();
-                                        trace!("response filtered");
-                                    }
-                                },
+                                    None => match pipeline.process(response) {
+                                        Some(result) => {
+                                            metrics.record_success();
+
+                                            debug!(
+                                                request_id = %result.request_id,
+                                                matched = result.matched,
+                                                "pipeline emitted result",
+                                            );
+                                        }
+                                        None => {
+                                            metrics.record_filtered();
+                                            trace!("response filtered");
+                                        }
+                                    },
+                                }
+
+                                let elapsed = start.elapsed().as_nanos() as u64;
+                                metrics.record_latency(elapsed);
+                                Span::current().record("latency_ns", elapsed);
+                                pb.inc(1);
                             }
-
-                            let elapsed = start.elapsed().as_nanos() as u64;
-                            metrics.record_latency(elapsed);
-                            span.record("latency_ns", elapsed);
-                            pb.inc(1);
+                            .instrument(info_span!(
+                                "scan_request",
+                                request_id = request_id,
+                                url = %request_url,
+                                latency_ns = tracing::field::Empty,
+                            ))
+                            .await;
                         }
                     });
 
                     handles.push(handle);
                 }
-
-                pb.finish_with_message("scan complete");
 
                 let mut generator = JobGenerator::new(config)
                     .await
@@ -250,6 +258,7 @@ async fn main() {
                     let _ = handle.await;
                 }
 
+                pb.finish_with_message("scan complete");
                 info!("scan complete");
             }
             Err(e) => {
