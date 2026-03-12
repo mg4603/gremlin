@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use clap::{Parser, Subcommand};
+use indicatif::{ProgressBar, ProgressStyle};
 use tokio::sync::Mutex;
 use tokio::{signal, task};
 use tracing::{debug, error, info, info_span, trace};
@@ -16,6 +17,7 @@ use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
 use gremlin_core::rate_limiter::TokenBucket;
 use gremlin_core::request::ScanRequest;
+use gremlin_core::wordlist::WordlistReader;
 
 /// HTTP scanning engine
 #[derive(Parser)]
@@ -125,12 +127,31 @@ async fn main() {
 
                 let metrics = Metrics::new();
 
+                let wordlist_len = match WordlistReader::count_lines(&config.wordlist) {
+                    Ok(l) => l as u64,
+                    Err(e) => {
+                        eprintln!("failed to count number of lines: {e}");
+                        std::process::exit(1);
+                    }
+                };
+
+                let pb = ProgressBar::new(wordlist_len);
+
+                pb.set_style(
+                    ProgressStyle::with_template(
+                        "[{elapsed_precise}] [{wide_bar}] {pos}/{len} ({eta})",
+                    )
+                    .unwrap(),
+                );
+
                 for _ in 0..concurrency {
                     let rx = receiver.clone();
                     let engine = engine.clone();
                     let pipeline = pipeline.clone();
                     let limiter = limiter.clone();
                     let metrics = metrics.clone();
+                    let pb = pb.clone();
+
                     let handle = task::spawn(async move {
                         loop {
                             metrics.record_request();
@@ -186,11 +207,14 @@ async fn main() {
                             let elapsed = start.elapsed().as_nanos() as u64;
                             metrics.record_latency(elapsed);
                             span.record("latency_ns", elapsed);
+                            pb.inc(1);
                         }
                     });
 
                     handles.push(handle);
                 }
+
+                pb.finish_with_message("scan complete");
 
                 let mut generator = JobGenerator::new(config)
                     .await
