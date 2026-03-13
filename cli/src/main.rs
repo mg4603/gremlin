@@ -1,4 +1,5 @@
 mod scan;
+mod worker;
 
 use std::path::PathBuf;
 
