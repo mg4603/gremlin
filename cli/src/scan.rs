@@ -8,14 +8,14 @@ use tracing::info;
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
-use gremlin_core::generator::JobGenerator;
 use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
-use gremlin_core::queue::{TaskSender, bounded};
+use gremlin_core::queue::bounded;
 use gremlin_core::rate_limiter::TokenBucket;
 use gremlin_core::request::ScanRequest;
 use gremlin_core::wordlist::WordlistReader;
 
+use crate::generator::run_generator;
 use crate::worker::spawn_workers;
 
 #[allow(clippy::too_many_arguments)]
@@ -111,40 +111,4 @@ pub async fn scan(
 
     pb.finish_with_message("scan complete");
     info!("scan complete");
-}
-
-pub async fn run_generator(
-    config: ScanConfig,
-    sender: TaskSender<ScanRequest>,
-    mut shutdown: JoinHandle<()>,
-) {
-    let mut generator = JobGenerator::new(config)
-        .await
-        .expect("generator init failed");
-
-    loop {
-        tokio::select! {
-            _ = &mut shutdown => {
-                println!("shutdown signal received");
-                break;
-            }
-
-            job = generator.next() => {
-                match job {
-                    Ok(Some(request)) => {
-                        if sender.send(request).await.is_err() {
-                            break;
-                        }
-                    }
-                    Ok(None) => break,
-                    Err(e) => {
-                        eprintln!("generator error: {e}");
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    drop(sender);
 }

@@ -1,3 +1,4 @@
+mod generator;
 mod scan;
 mod worker;
 
