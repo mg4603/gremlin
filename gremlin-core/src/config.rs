@@ -24,6 +24,13 @@ pub struct ScanConfig {
     pub rate_limit: Option<u64>,
 }
 
+#[derive(Debug)]
+pub struct BenchmarkConfig {
+    pub url: Url,
+    pub requests: usize,
+    pub concurrency: usize,
+}
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("invalid url: {0}")]
@@ -34,6 +41,9 @@ pub enum ConfigError {
 
     #[error("concurrency must be greater than zero")]
     InvalidConcurrency,
+
+    #[error("number of requests must be greater than zero")]
+    InvalidNumberOfRequests,
 
     #[error("invalid http status code: {0}")]
     InvalidStatusCode(u16),
@@ -131,5 +141,25 @@ impl ScanConfig {
             filters.push(Box::new(SizeFilter::new(min, max)));
         }
         filters
+    }
+}
+
+impl BenchmarkConfig {
+    pub fn new(url: String, requests: usize, concurrency: usize) -> Result<Self, ConfigError> {
+        let parsed_url = Url::parse(&url).map_err(|_| ConfigError::InvalidUrl(url))?;
+
+        if concurrency == 0 {
+            return Err(ConfigError::InvalidConcurrency);
+        }
+
+        if requests == 0 {
+            return Err(ConfigError::InvalidNumberOfRequests);
+        }
+
+        Ok(Self {
+            url: parsed_url,
+            requests,
+            concurrency,
+        })
     }
 }
