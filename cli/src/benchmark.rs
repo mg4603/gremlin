@@ -9,21 +9,17 @@ use tracing::info;
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::BenchmarkConfig;
-use gremlin_core::generator::JobGeneratorBenchmark;
+use gremlin_core::generator::BenchmarkJobGenerator;
 use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
 use gremlin_core::rate_limiter::TokenBucket;
 use gremlin_core::request::ScanRequest;
 
+use crate::generator::run_generator;
 use crate::worker::spawn_workers;
 
-pub async fn benchmark(
-    url: String,
-    requests: usize,
-    concurrency: usize,
-    mut shutdown: JoinHandle<()>,
-) {
+pub async fn benchmark(url: String, requests: usize, concurrency: usize, shutdown: JoinHandle<()>) {
     let config = match BenchmarkConfig::new(url, requests, concurrency) {
         Ok(c) => c,
         Err(e) => {
@@ -73,33 +69,10 @@ pub async fn benchmark(
         pb.clone(),
     );
 
-    let mut generator = JobGeneratorBenchmark::new(config).expect("generator init failed");
+    let generator = BenchmarkJobGenerator::new(config).expect("generator init failed");
 
-    loop {
-        tokio::select! {
-            _ = &mut shutdown => {
-                println!("shutdown signal received");
-                break;
-            }
+    run_generator(generator, sender, shutdown).await;
 
-            job = generator.next() => {
-                match job {
-                    Ok(Some(request)) => {
-                        if sender.send(request).await.is_err() {
-                            break;
-                        }
-                    }
-                    Ok(None) => break,
-                    Err(e) => {
-                        eprintln!("generator error: {e}");
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    drop(sender);
     for handle in handles {
         _ = handle.await;
     }

@@ -20,32 +20,35 @@ pub enum GeneratorError {
 }
 
 #[async_trait]
-pub trait Generator {
+pub trait JobGenerator {
     async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError>;
 }
 
-pub struct JobGenerator {
-    config: ScanConfig,
+pub struct ScanJobGenerator {
+    url: Url,
     reader: WordlistReader,
     counter: AtomicU64,
 }
 
-impl JobGenerator {
+impl ScanJobGenerator {
     pub async fn new(config: ScanConfig) -> Result<Self, GeneratorError> {
         let reader = WordlistReader::open(&config.wordlist).await?;
 
         Ok(Self {
-            config,
+            url: config.url,
             reader,
             counter: AtomicU64::new(1),
         })
     }
+}
 
-    pub async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
+#[async_trait]
+impl JobGenerator for ScanJobGenerator {
+    async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
         if let Some(entry) = self.reader.next().await? {
             let id: RequestId = self.counter.fetch_add(1, Ordering::Relaxed);
 
-            let fuzzed_url = self.config.url.as_str().replace("FUZZ", &entry);
+            let fuzzed_url = self.url.as_str().replace("FUZZ", &entry);
 
             let parsed_url = Url::parse(&fuzzed_url)
                 .map_err(|_| GeneratorError::InvalidGeneratedUrl(fuzzed_url.clone()))?;
@@ -62,13 +65,13 @@ impl JobGenerator {
     }
 }
 
-pub struct JobGeneratorBenchmark {
+pub struct BenchmarkJobGenerator {
     url: Url,
     requests: usize,
     counter: AtomicU64,
 }
 
-impl JobGeneratorBenchmark {
+impl BenchmarkJobGenerator {
     pub fn new(config: BenchmarkConfig) -> Result<Self, GeneratorError> {
         Ok(Self {
             url: config.url,
@@ -76,8 +79,11 @@ impl JobGeneratorBenchmark {
             counter: AtomicU64::new(0),
         })
     }
+}
 
-    pub async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
+#[async_trait]
+impl JobGenerator for BenchmarkJobGenerator {
+    async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
         let count = self.counter.load(Ordering::Relaxed) as usize;
         if count < self.requests {
             let url_str = format!("{}/{}", self.url.as_str().trim_end_matches('/'), count);
