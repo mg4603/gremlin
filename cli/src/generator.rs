@@ -1,19 +1,14 @@
 use tokio::task::JoinHandle;
 
-use gremlin_core::config::ScanConfig;
 use gremlin_core::generator::JobGenerator;
 use gremlin_core::queue::TaskSender;
 use gremlin_core::request::ScanRequest;
 
 pub async fn run_generator(
-    config: ScanConfig,
+    mut generator: JobGenerator,
     sender: TaskSender<ScanRequest>,
     mut shutdown: JoinHandle<()>,
 ) {
-    let mut generator = JobGenerator::new(config)
-        .await
-        .expect("generator init failed");
-
     loop {
         tokio::select! {
             _ = &mut shutdown => {
