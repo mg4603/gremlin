@@ -40,8 +40,11 @@ impl ScanJobGenerator {
             counter: AtomicU64::new(1),
         })
     }
+}
 
-    pub async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
+#[async_trait]
+impl JobGenerator for ScanJobGenerator {
+    async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
         if let Some(entry) = self.reader.next().await? {
             let id: RequestId = self.counter.fetch_add(1, Ordering::Relaxed);
 
