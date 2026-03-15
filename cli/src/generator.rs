@@ -5,7 +5,7 @@ use gremlin_core::queue::TaskSender;
 use gremlin_core::request::ScanRequest;
 
 pub async fn run_generator(
-    mut generator: JobGenerator,
+    mut generator: impl JobGenerator,
     sender: TaskSender<ScanRequest>,
     mut shutdown: JoinHandle<()>,
 ) {
