@@ -1,10 +1,11 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use async_trait::async_trait;
 use http::{HeaderMap, Method};
 use thiserror::Error;
 use url::Url;
 
-use crate::config::ScanConfig;
+use crate::config::{BenchmarkConfig, ScanConfig};
 use crate::request::ScanRequest;
 use crate::types::RequestId;
 use crate::wordlist::WordlistReader;
@@ -16,6 +17,11 @@ pub enum GeneratorError {
 
     #[error("generated url is invalid: {0}")]
     InvalidGeneratedUrl(String),
+}
+
+#[async_trait]
+pub trait Generator {
+    async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError>;
 }
 
 pub struct JobGenerator {
@@ -45,6 +51,42 @@ impl JobGenerator {
                 .map_err(|_| GeneratorError::InvalidGeneratedUrl(fuzzed_url.clone()))?;
             Ok(Some(ScanRequest {
                 id,
+                url: parsed_url,
+                method: Method::GET,
+                headers: HeaderMap::new(),
+                body: None,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct JobGeneratorBenchmark {
+    url: Url,
+    requests: usize,
+    counter: AtomicU64,
+}
+
+impl JobGeneratorBenchmark {
+    pub fn new(config: BenchmarkConfig) -> Result<Self, GeneratorError> {
+        Ok(Self {
+            url: config.url,
+            requests: config.requests,
+            counter: AtomicU64::new(0),
+        })
+    }
+
+    pub async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
+        let count = self.counter.load(Ordering::Relaxed) as usize;
+        if count < self.requests {
+            let url_str = format!("{}/{}", self.url.as_str().trim_end_matches('/'), count);
+            let parsed_url = Url::parse(&url_str)
+                .map_err(|_| GeneratorError::InvalidGeneratedUrl(url_str.clone()))?;
+            self.counter.fetch_add(1, Ordering::Relaxed);
+
+            Ok(Some(ScanRequest {
+                id: count as RequestId,
                 url: parsed_url,
                 method: Method::GET,
                 headers: HeaderMap::new(),
