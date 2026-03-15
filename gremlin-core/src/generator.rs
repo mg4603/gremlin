@@ -25,7 +25,7 @@ pub trait JobGenerator {
 }
 
 pub struct ScanJobGenerator {
-    config: ScanConfig,
+    url: Url,
     reader: WordlistReader,
     counter: AtomicU64,
 }
@@ -35,7 +35,7 @@ impl ScanJobGenerator {
         let reader = WordlistReader::open(&config.wordlist).await?;
 
         Ok(Self {
-            config,
+            url: config.url,
             reader,
             counter: AtomicU64::new(1),
         })
@@ -48,7 +48,7 @@ impl JobGenerator for ScanJobGenerator {
         if let Some(entry) = self.reader.next().await? {
             let id: RequestId = self.counter.fetch_add(1, Ordering::Relaxed);
 
-            let fuzzed_url = self.config.url.as_str().replace("FUZZ", &entry);
+            let fuzzed_url = self.url.as_str().replace("FUZZ", &entry);
 
             let parsed_url = Url::parse(&fuzzed_url)
                 .map_err(|_| GeneratorError::InvalidGeneratedUrl(fuzzed_url.clone()))?;
