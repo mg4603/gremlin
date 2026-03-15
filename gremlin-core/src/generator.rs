@@ -65,13 +65,13 @@ impl JobGenerator for ScanJobGenerator {
     }
 }
 
-pub struct JobGeneratorBenchmark {
+pub struct BenchmarkJobGenerator {
     url: Url,
     requests: usize,
     counter: AtomicU64,
 }
 
-impl JobGeneratorBenchmark {
+impl BenchmarkJobGenerator {
     pub fn new(config: BenchmarkConfig) -> Result<Self, GeneratorError> {
         Ok(Self {
             url: config.url,

@@ -9,7 +9,7 @@ use tracing::info;
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::BenchmarkConfig;
-use gremlin_core::generator::JobGeneratorBenchmark;
+use gremlin_core::generator::BenchmarkJobGenerator;
 use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
@@ -73,7 +73,7 @@ pub async fn benchmark(
         pb.clone(),
     );
 
-    let mut generator = JobGeneratorBenchmark::new(config).expect("generator init failed");
+    let mut generator = BenchmarkJobGenerator::new(config).expect("generator init failed");
 
     loop {
         tokio::select! {
