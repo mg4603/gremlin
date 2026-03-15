@@ -1,3 +1,4 @@
+mod benchmark;
 mod generator;
 mod scan;
 mod worker;
@@ -7,6 +8,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use tokio::signal;
 
+use benchmark::benchmark;
 use gremlin_core::logging;
 use scan::scan;
 
@@ -56,6 +58,17 @@ enum Commands {
         #[arg(long, value_name = "RATE")]
         rate_limit: Option<u64>,
     },
+
+    Benchmark {
+        #[arg(long)]
+        url: String,
+
+        #[arg(long, default_value_t = 10000)]
+        requests: usize,
+
+        #[arg(long, default_value_t = 50)]
+        concurrency: usize,
+    },
 }
 
 #[tokio::main]
@@ -93,6 +106,13 @@ async fn main() {
                 shutdown,
             )
             .await;
+        }
+        Commands::Benchmark {
+            url,
+            requests,
+            concurrency,
+        } => {
+            benchmark(url, requests, concurrency, shutdown).await;
         }
     }
 }
