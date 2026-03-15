@@ -79,8 +79,11 @@ impl BenchmarkJobGenerator {
             counter: AtomicU64::new(0),
         })
     }
+}
 
-    pub async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
+#[async_trait]
+impl JobGenerator for BenchmarkJobGenerator {
+    async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
         let count = self.counter.load(Ordering::Relaxed) as usize;
         if count < self.requests {
             let url_str = format!("{}/{}", self.url.as_str().trim_end_matches('/'), count);
