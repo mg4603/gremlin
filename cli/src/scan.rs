@@ -8,7 +8,7 @@ use tracing::info;
 
 use engine::engine::HttpEngine;
 use gremlin_core::config::ScanConfig;
-use gremlin_core::generator::JobGenerator;
+use gremlin_core::generator::ScanJobGenerator;
 use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
@@ -104,7 +104,7 @@ pub async fn scan(
         pb.clone(),
     );
 
-    let generator = JobGenerator::new(config)
+    let generator = ScanJobGenerator::new(config)
         .await
         .expect("generator init failed");
 

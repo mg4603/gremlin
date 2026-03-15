@@ -20,17 +20,17 @@ pub enum GeneratorError {
 }
 
 #[async_trait]
-pub trait Generator {
+pub trait JobGenerator {
     async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError>;
 }
 
-pub struct JobGenerator {
+pub struct ScanJobGenerator {
     config: ScanConfig,
     reader: WordlistReader,
     counter: AtomicU64,
 }
 
-impl JobGenerator {
+impl ScanJobGenerator {
     pub async fn new(config: ScanConfig) -> Result<Self, GeneratorError> {
         let reader = WordlistReader::open(&config.wordlist).await?;
 
