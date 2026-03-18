@@ -125,7 +125,7 @@ impl BenchmarkConfig {
         }
 
         if requests == 0 {
-            return Err(ConfigError::InvalidNumberOfRequests);
+            return Err(ConfigError::InvalidNumberOfRequests(requests));
         }
 
         Ok(Self {

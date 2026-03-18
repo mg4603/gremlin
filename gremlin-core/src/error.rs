@@ -32,8 +32,8 @@ pub enum ConfigError {
     #[error("invalid concurrency: {0} (must be > 0)")]
     InvalidConcurrency(usize),
 
-    #[error("number of requests must be greater than zero")]
-    InvalidNumberOfRequests,
+    #[error("invalid number of requests: {0} (must be > 0)")]
+    InvalidNumberOfRequests(usize),
 
     #[error("invalid http status code: {0}")]
     InvalidStatusCode(u16),
