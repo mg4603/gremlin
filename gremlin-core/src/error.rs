@@ -20,3 +20,30 @@ pub enum ResponseError {
     #[error("unexpected transport error: {0}")]
     Other(String),
 }
+
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("invalid url: {0}")]
+    InvalidUrl(String),
+
+    #[error("wordlist file not found: {0}")]
+    WordlistNotFound(String),
+
+    #[error("invalid concurrency: {0} (must be > 0)")]
+    InvalidConcurrency(usize),
+
+    #[error("invalid number of requests: {0} (must be > 0)")]
+    InvalidNumberOfRequests(usize),
+
+    #[error("invalid http status code: {0}")]
+    InvalidStatusCode(u16),
+
+    #[error("invalid size range: min={min}, max={max} (min mut be <= max)")]
+    InvalidSizeRange { min: usize, max: usize },
+
+    #[error("invalid regex: {0}")]
+    InvalidRegex(String),
+
+    #[error("invalid rate limit: {0} (must be > 0)")]
+    InvalidRateLimit(u64),
+}

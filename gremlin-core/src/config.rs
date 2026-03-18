@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use http::StatusCode;
 use regex::Regex;
-use thiserror::Error;
 use url::Url;
 
+use crate::error::ConfigError;
 use crate::filters::size::SizeFilter;
 use crate::matchers::{regex::RegexMatcher, status::StatusMatcher};
 use crate::pipeline::{Filter, Matcher};
@@ -31,33 +31,6 @@ pub struct BenchmarkConfig {
     pub concurrency: usize,
 }
 
-#[derive(Debug, Error)]
-pub enum ConfigError {
-    #[error("invalid url: {0}")]
-    InvalidUrl(String),
-
-    #[error("wordlist file not found: {0}")]
-    WordlistNotFound(String),
-
-    #[error("concurrency must be greater than zero")]
-    InvalidConcurrency,
-
-    #[error("number of requests must be greater than zero")]
-    InvalidNumberOfRequests,
-
-    #[error("invalid http status code: {0}")]
-    InvalidStatusCode(u16),
-
-    #[error("size range invalid: {min}-{max}")]
-    InvalidSizeRange { min: usize, max: usize },
-
-    #[error("invalid regex pattern: {0}")]
-    InvalidRegexPattern(String),
-
-    #[error("invalid request rate limit")]
-    InvalidRateLimit,
-}
-
 impl ScanConfig {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -79,7 +52,7 @@ impl ScanConfig {
         }
 
         if concurrency == 0 {
-            return Err(ConfigError::InvalidConcurrency);
+            return Err(ConfigError::InvalidConcurrency(concurrency));
         }
 
         let match_status = match match_status {
@@ -96,17 +69,16 @@ impl ScanConfig {
         }
 
         let match_regex = match match_regex {
-            Some(pattern) => Some(
-                Regex::new(&pattern)
-                    .map_err(|e| ConfigError::InvalidRegexPattern(e.to_string()))?,
-            ),
+            Some(pattern) => {
+                Some(Regex::new(&pattern).map_err(|e| ConfigError::InvalidRegex(e.to_string()))?)
+            }
             None => None,
         };
 
         if let Some(rate) = rate_limit
             && rate == 0
         {
-            return Err(ConfigError::InvalidRateLimit);
+            return Err(ConfigError::InvalidRateLimit(rate));
         }
 
         Ok(Self {
@@ -149,11 +121,11 @@ impl BenchmarkConfig {
         let parsed_url = Url::parse(&url).map_err(|_| ConfigError::InvalidUrl(url))?;
 
         if concurrency == 0 {
-            return Err(ConfigError::InvalidConcurrency);
+            return Err(ConfigError::InvalidConcurrency(concurrency));
         }
 
         if requests == 0 {
-            return Err(ConfigError::InvalidNumberOfRequests);
+            return Err(ConfigError::InvalidNumberOfRequests(requests));
         }
 
         Ok(Self {
