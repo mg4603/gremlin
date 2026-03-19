@@ -53,6 +53,11 @@ pub enum GeneratorError {
     #[error("wordlist io error")]
     Io(#[from] std::io::Error),
 
-    #[error("generated url is invalid: {0}")]
-    InvalidGeneratedUrl(String),
+    #[error("invalid generated url from base={base} input={input}: {source}")]
+    InvalidUrl {
+        base: String,
+        input: String,
+        #[source]
+        source: url::ParseError,
+    },
 }

@@ -41,8 +41,12 @@ impl JobGenerator for ScanJobGenerator {
 
             let fuzzed_url = self.url.as_str().replace("FUZZ", &entry);
 
-            let parsed_url = Url::parse(&fuzzed_url)
-                .map_err(|_| GeneratorError::InvalidGeneratedUrl(fuzzed_url.clone()))?;
+            let parsed_url = Url::parse(&fuzzed_url).map_err(|e| GeneratorError::InvalidUrl {
+                base: self.url.as_str().replace("FUZZ", ""),
+                input: entry,
+                source: e,
+            })?;
+
             Ok(Some(ScanRequest {
                 id,
                 url: parsed_url,
@@ -78,8 +82,12 @@ impl JobGenerator for BenchmarkJobGenerator {
         let count = self.counter.load(Ordering::Relaxed) as usize;
         if count < self.requests {
             let url_str = format!("{}/{}", self.url.as_str().trim_end_matches('/'), count);
-            let parsed_url = Url::parse(&url_str)
-                .map_err(|_| GeneratorError::InvalidGeneratedUrl(url_str.clone()))?;
+            let parsed_url = Url::parse(&url_str).map_err(|e| GeneratorError::InvalidUrl {
+                base: self.url.to_string(),
+                input: count.to_string(),
+                source: e,
+            })?;
+
             self.counter.fetch_add(1, Ordering::Relaxed);
 
             Ok(Some(ScanRequest {
