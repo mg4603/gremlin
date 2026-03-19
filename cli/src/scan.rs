@@ -67,9 +67,7 @@ pub async fn scan(
 
     let pipeline = Arc::new(Pipeline::new(matchers, filters));
 
-    let rate = rate_limit.unwrap_or(100);
-
-    let limiter = Arc::new(Mutex::new(TokenBucket::new(rate)));
+    let limiter = rate_limit.map(|rate| Arc::new(Mutex::new(TokenBucket::new(rate))));
 
     let metrics = Metrics::new();
 

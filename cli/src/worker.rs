@@ -18,7 +18,7 @@ pub fn spawn_workers(
     receiver: Arc<Mutex<TaskReceiver<ScanRequest>>>,
     engine: Arc<HttpEngine>,
     pipeline: Arc<Pipeline>,
-    limiter: Arc<Mutex<TokenBucket>>,
+    limiter: Option<Arc<Mutex<TokenBucket>>>,
     metrics: Arc<Metrics>,
     pb: ProgressBar,
 ) -> Vec<JoinHandle<()>> {
@@ -50,7 +50,10 @@ pub fn spawn_workers(
                 async {
                     let start = Instant::now();
 
-                    limiter.lock().await.acquire().await;
+                    if let Some(limiter) = &limiter {
+                        limiter.lock().await.acquire().await;
+                    }
+
                     let response = engine.execute(request).await;
 
                     if let Some(status) = response.status {

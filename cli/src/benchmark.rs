@@ -13,7 +13,6 @@ use gremlin_core::generator::BenchmarkJobGenerator;
 use gremlin_core::metrics::Metrics;
 use gremlin_core::pipeline::executor::Pipeline;
 use gremlin_core::queue::bounded;
-use gremlin_core::rate_limiter::TokenBucket;
 use gremlin_core::request::ScanRequest;
 
 use crate::generator::run_generator;
@@ -44,7 +43,7 @@ pub async fn benchmark(url: String, requests: usize, concurrency: usize, shutdow
 
     let receiver = Arc::new(Mutex::new(receiver));
     let pipeline = Arc::new(Pipeline::new(vec![], vec![]));
-    let limiter = Arc::new(Mutex::new(TokenBucket::new(requests as u64)));
+    let limiter = None;
 
     let pb = ProgressBar::new(requests as u64);
 
