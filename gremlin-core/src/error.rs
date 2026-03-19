@@ -51,7 +51,16 @@ pub enum ConfigError {
 #[derive(Debug, Error)]
 pub enum GeneratorError {
     #[error("wordlist io error")]
-    Io(#[from] std::io::Error),
+    Io {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to read wordlist line: {source}")]
+    ReadLine {
+        #[source]
+        source: std::io::Error,
+    },
 
     #[error("invalid generated url from base={base} input={input}: {source}")]
     InvalidUrl {

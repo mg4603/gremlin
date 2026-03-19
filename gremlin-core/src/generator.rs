@@ -23,7 +23,9 @@ pub struct ScanJobGenerator {
 
 impl ScanJobGenerator {
     pub async fn new(config: ScanConfig) -> Result<Self, GeneratorError> {
-        let reader = WordlistReader::open(&config.wordlist).await?;
+        let reader = WordlistReader::open(&config.wordlist)
+            .await
+            .map_err(|e| GeneratorError::Io { source: e })?;
 
         Ok(Self {
             url: config.url,
@@ -36,14 +38,20 @@ impl ScanJobGenerator {
 #[async_trait]
 impl JobGenerator for ScanJobGenerator {
     async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
-        if let Some(entry) = self.reader.next().await? {
+        let entry = self
+            .reader
+            .next()
+            .await
+            .map_err(|e| GeneratorError::ReadLine { source: e })?;
+
+        if let Some(entry) = &entry {
             let id: RequestId = self.counter.fetch_add(1, Ordering::Relaxed);
 
-            let fuzzed_url = self.url.as_str().replace("FUZZ", &entry);
+            let fuzzed_url = self.url.as_str().replace("FUZZ", entry);
 
             let parsed_url = Url::parse(&fuzzed_url).map_err(|e| GeneratorError::InvalidUrl {
                 base: self.url.as_str().replace("FUZZ", ""),
-                input: entry,
+                input: entry.to_string(),
                 source: e,
             })?;
 
