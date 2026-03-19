@@ -47,3 +47,12 @@ pub enum ConfigError {
     #[error("invalid rate limit: {0} (must be > 0)")]
     InvalidRateLimit(u64),
 }
+
+#[derive(Debug, Error)]
+pub enum GeneratorError {
+    #[error("wordlist io error")]
+    Io(#[from] std::io::Error),
+
+    #[error("generated url is invalid: {0}")]
+    InvalidGeneratedUrl(String),
+}

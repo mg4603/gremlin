@@ -2,22 +2,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use async_trait::async_trait;
 use http::{HeaderMap, Method};
-use thiserror::Error;
 use url::Url;
 
 use crate::config::{BenchmarkConfig, ScanConfig};
+use crate::error::GeneratorError;
 use crate::request::ScanRequest;
 use crate::types::RequestId;
 use crate::wordlist::WordlistReader;
-
-#[derive(Debug, Error)]
-pub enum GeneratorError {
-    #[error("wordlist io error")]
-    Io(#[from] std::io::Error),
-
-    #[error("generated url is invalid: {0}")]
-    InvalidGeneratedUrl(String),
-}
 
 #[async_trait]
 pub trait JobGenerator {
