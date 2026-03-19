@@ -47,3 +47,26 @@ pub enum ConfigError {
     #[error("invalid rate limit: {0} (must be > 0)")]
     InvalidRateLimit(u64),
 }
+
+#[derive(Debug, Error)]
+pub enum GeneratorError {
+    #[error("wordlist io error")]
+    Io {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to read wordlist line: {source}")]
+    ReadLine {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("invalid generated url from base={base} input={input}: {source}")]
+    InvalidUrl {
+        base: String,
+        input: String,
+        #[source]
+        source: url::ParseError,
+    },
+}

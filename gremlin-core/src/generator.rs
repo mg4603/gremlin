@@ -2,22 +2,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use async_trait::async_trait;
 use http::{HeaderMap, Method};
-use thiserror::Error;
 use url::Url;
 
 use crate::config::{BenchmarkConfig, ScanConfig};
+use crate::error::GeneratorError;
 use crate::request::ScanRequest;
 use crate::types::RequestId;
 use crate::wordlist::WordlistReader;
-
-#[derive(Debug, Error)]
-pub enum GeneratorError {
-    #[error("wordlist io error")]
-    Io(#[from] std::io::Error),
-
-    #[error("generated url is invalid: {0}")]
-    InvalidGeneratedUrl(String),
-}
 
 #[async_trait]
 pub trait JobGenerator {
@@ -32,7 +23,9 @@ pub struct ScanJobGenerator {
 
 impl ScanJobGenerator {
     pub async fn new(config: ScanConfig) -> Result<Self, GeneratorError> {
-        let reader = WordlistReader::open(&config.wordlist).await?;
+        let reader = WordlistReader::open(&config.wordlist)
+            .await
+            .map_err(|e| GeneratorError::Io { source: e })?;
 
         Ok(Self {
             url: config.url,
@@ -45,13 +38,23 @@ impl ScanJobGenerator {
 #[async_trait]
 impl JobGenerator for ScanJobGenerator {
     async fn next(&mut self) -> Result<Option<ScanRequest>, GeneratorError> {
-        if let Some(entry) = self.reader.next().await? {
+        let entry = self
+            .reader
+            .next()
+            .await
+            .map_err(|e| GeneratorError::ReadLine { source: e })?;
+
+        if let Some(entry) = &entry {
             let id: RequestId = self.counter.fetch_add(1, Ordering::Relaxed);
 
-            let fuzzed_url = self.url.as_str().replace("FUZZ", &entry);
+            let fuzzed_url = self.url.as_str().replace("FUZZ", entry);
 
-            let parsed_url = Url::parse(&fuzzed_url)
-                .map_err(|_| GeneratorError::InvalidGeneratedUrl(fuzzed_url.clone()))?;
+            let parsed_url = Url::parse(&fuzzed_url).map_err(|e| GeneratorError::InvalidUrl {
+                base: self.url.as_str().replace("FUZZ", ""),
+                input: entry.to_string(),
+                source: e,
+            })?;
+
             Ok(Some(ScanRequest {
                 id,
                 url: parsed_url,
@@ -87,8 +90,12 @@ impl JobGenerator for BenchmarkJobGenerator {
         let count = self.counter.load(Ordering::Relaxed) as usize;
         if count < self.requests {
             let url_str = format!("{}/{}", self.url.as_str().trim_end_matches('/'), count);
-            let parsed_url = Url::parse(&url_str)
-                .map_err(|_| GeneratorError::InvalidGeneratedUrl(url_str.clone()))?;
+            let parsed_url = Url::parse(&url_str).map_err(|e| GeneratorError::InvalidUrl {
+                base: self.url.to_string(),
+                input: count.to_string(),
+                source: e,
+            })?;
+
             self.counter.fetch_add(1, Ordering::Relaxed);
 
             Ok(Some(ScanRequest {
