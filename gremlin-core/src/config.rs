@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use http::StatusCode;
-use regex::Regex;
+use regex::bytes::Regex;
 use url::Url;
 
 use crate::error::ConfigError;

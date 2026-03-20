@@ -1,4 +1,4 @@
-use regex::Regex;
+use regex::bytes::Regex;
 
 use crate::pipeline::Matcher;
 use crate::response::ScanResponse;
@@ -16,10 +16,7 @@ impl RegexMatcher {
 impl Matcher for RegexMatcher {
     fn matches(&self, response: &ScanResponse) -> bool {
         match &response.body {
-            Some(body) => {
-                let text = String::from_utf8_lossy(body);
-                self.regex.is_match(&text)
-            }
+            Some(body) => self.regex.is_match(body),
             None => false,
         }
     }
