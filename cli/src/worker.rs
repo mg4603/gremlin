@@ -20,7 +20,7 @@ pub fn spawn_workers(
     pipeline: Arc<Pipeline>,
     limiter: Option<Arc<Mutex<TokenBucket>>>,
     metrics: Arc<Metrics>,
-    pb: ProgressBar,
+    pb: Option<ProgressBar>,
 ) -> Vec<JoinHandle<()>> {
     let mut handles = Vec::new();
     for _ in 0..concurrency {
@@ -85,7 +85,10 @@ pub fn spawn_workers(
                     let elapsed = start.elapsed().as_nanos() as u64;
                     metrics.record_latency(elapsed);
                     Span::current().record("latency_ns", elapsed);
-                    pb.inc(1);
+
+                    if let Some(pb) = &pb {
+                        pb.inc(1);
+                    }
                 }
                 .instrument(info_span!(
                     "scan_request",
