@@ -24,6 +24,7 @@ pub async fn scan(
     url: String,
     wordlist: PathBuf,
     concurrency: usize,
+    no_progress: bool,
     match_status: Option<u16>,
     match_regex: Option<String>,
     filter_size_min: Option<usize>,
@@ -79,12 +80,18 @@ pub async fn scan(
         }
     };
 
-    let pb = ProgressBar::new(wordlist_len);
+    let pb = if !no_progress {
+        Some(ProgressBar::new(wordlist_len))
+    } else {
+        None
+    };
 
-    pb.set_style(
-        ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar}] {pos}/{len} ({eta})")
-            .unwrap(),
-    );
+    if let Some(pb) = &pb {
+        pb.set_style(
+            ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar}] {pos}/{len} ({eta})")
+                .unwrap(),
+        );
+    }
 
     info!(
         concurrency = concurrency,
@@ -112,6 +119,9 @@ pub async fn scan(
         let _ = handle.await;
     }
 
-    pb.finish_with_message("scan complete");
+    if let Some(pb) = &pb {
+        pb.finish_with_message("scan complete");
+    }
+
     info!("scan complete");
 }

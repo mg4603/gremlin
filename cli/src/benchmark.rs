@@ -18,7 +18,13 @@ use gremlin_core::request::ScanRequest;
 use crate::generator::run_generator;
 use crate::worker::spawn_workers;
 
-pub async fn benchmark(url: String, requests: usize, concurrency: usize, shutdown: JoinHandle<()>) {
+pub async fn benchmark(
+    url: String,
+    requests: usize,
+    concurrency: usize,
+    no_progress: bool,
+    shutdown: JoinHandle<()>,
+) {
     let config = match BenchmarkConfig::new(url, requests, concurrency) {
         Ok(c) => c,
         Err(e) => {
@@ -45,12 +51,18 @@ pub async fn benchmark(url: String, requests: usize, concurrency: usize, shutdow
     let pipeline = Arc::new(Pipeline::new(vec![], vec![]));
     let limiter = None;
 
-    let pb = ProgressBar::new(requests as u64);
+    let pb = if !no_progress {
+        Some(ProgressBar::new(requests as u64))
+    } else {
+        None
+    };
 
-    pb.set_style(
-        ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar}] {pos}/{len} ({eta})")
-            .unwrap(),
-    );
+    if let Some(pb) = &pb {
+        pb.set_style(
+            ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar}] {pos}/{len} ({eta})")
+                .unwrap(),
+        );
+    }
 
     info!(
         concurrency = concurrency,
@@ -76,7 +88,10 @@ pub async fn benchmark(url: String, requests: usize, concurrency: usize, shutdow
         _ = handle.await;
     }
 
-    pb.finish_with_message("benchmarking complete");
+    if let Some(pb) = &pb {
+        pb.finish_with_message("benchmarking complete");
+    }
+
     info!("benchmarking complete");
 
     let elapsed = start.elapsed();

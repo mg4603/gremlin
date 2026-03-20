@@ -18,6 +18,14 @@ use scan::scan;
 #[command(version)]
 #[command(about = "High-performance HTTP scanning tool")]
 struct Cli {
+    /// Set logging level to Error
+    #[arg(long, default_value_t = false)]
+    quiet: bool,
+
+    /// Hide progress bar
+    #[arg(long, default_value_t = false)]
+    no_progress: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -73,9 +81,9 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    logging::init();
-
     let cli = Cli::parse();
+
+    logging::init(cli.quiet);
 
     let shutdown = tokio::spawn(async {
         signal::ctrl_c()
@@ -98,6 +106,7 @@ async fn main() {
                 url,
                 wordlist,
                 concurrency,
+                cli.no_progress,
                 match_status,
                 match_regex,
                 filter_size_min,
@@ -112,7 +121,7 @@ async fn main() {
             requests,
             concurrency,
         } => {
-            benchmark(url, requests, concurrency, shutdown).await;
+            benchmark(url, requests, concurrency, cli.no_progress, shutdown).await;
         }
     }
 }
