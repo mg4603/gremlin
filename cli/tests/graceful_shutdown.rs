@@ -1,18 +1,25 @@
-use std::process::{Command, Stdio};
+mod common;
+
+use std::process::Stdio;
 use std::time::Duration;
+
+use common::assertions::assert_success;
+use common::fixtures::wordlist;
+use common::process::spawn_cli;
 
 #[test]
 #[cfg(unix)]
 fn scanner_handles_sigint_gracefully() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_cli"))
-        .arg("scan")
-        .arg("--url")
-        .arg("https://example.com/FUZZ")
-        .arg("--wordlist")
-        .arg("tests/data/wordlist.txt")
-        .stdout(Stdio::null())
-        .spawn()
-        .expect("failed to spawn scanner");
+    let child = spawn_cli(
+        &[
+            "scan",
+            "--url",
+            "https://example.com/FUZZ",
+            "--wordlist",
+            wordlist().to_str().unwrap(),
+        ],
+        Stdio::null(),
+    );
 
     std::thread::sleep(Duration::from_secs(1));
 
@@ -20,6 +27,8 @@ fn scanner_handles_sigint_gracefully() {
     use nix::unistd::Pid;
     kill(Pid::from_raw(child.id() as i32), Signal::SIGINT).unwrap();
 
-    let status = child.wait().expect("failed to wait for process");
-    assert!(status.success());
+    let output = child
+        .wait_with_output()
+        .expect("failed to wait for process");
+    assert_success(&output)
 }
